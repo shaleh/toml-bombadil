@@ -56,7 +56,7 @@ pub enum Mode {
 }
 
 impl Bombadil {
-   /// Symlink `bombadil.toml` to `$XDG_CONFIG/bombadil.toml` so we can later read it from there.
+    /// Symlink `bombadil.toml` to `$XDG_CONFIG/bombadil.toml` so we can later read it from there.
     pub fn link_self_config(dotfiles_path: Option<PathBuf>) -> Result<()> {
         // Get the provided path and attempt to resolve 'bombadil.toml' if it's a directory
         let path = match dotfiles_path {
@@ -140,29 +140,29 @@ impl Bombadil {
                             let source = format!("{:?}", copy_path).blue();
                             let dest = format!("{:?}", target).yellow();
                             if self.verbosity {
-				println!("{} => {}", source, dest);
-			    }
+                                println!("{} => {}", source, dest);
+                            }
                         }
                         LinkResult::Created => {
                             let source = format!("{:?}", copy_path).blue();
                             let dest = format!("{:?}", target).green();
                             if self.verbosity {
-				println!("Created - {} => {}", source, dest);
-			    }
+                                println!("Created - {} => {}", source, dest);
+                            }
                         }
                         LinkResult::Ignored => {
                             let source = format!("{:?}", copy_path);
                             let dest = format!("{:?}", target);
                             if self.verbosity {
-				println!("Ignored - {} => {}", source, dest);
-			    }
+                                println!("Ignored - {} => {}", source, dest);
+                            }
                         }
                         LinkResult::Unchanged => {
                             let source = format!("{:?}", copy_path);
                             let dest = format!("{:?}", target);
-			    if self.verbosity {
-				println!("Unchanged - {} => {}", source, dest);
-			    }
+                            if self.verbosity {
+                                println!("Unchanged - {} => {}", source, dest);
+                            }
                         }
                     }
                 }
@@ -388,9 +388,9 @@ impl Bombadil {
 
     /// Enable a dotfile profile by merging its settings with the default profile
     pub fn configure_verbosity(&mut self, verbose: bool) -> Result<()> {
-	if verbose {
-	    self.verbosity = true;
-	}
+        if verbose {
+            self.verbosity = true;
+        }
 
         Ok(())
     }
@@ -457,7 +457,7 @@ impl Bombadil {
             posthooks,
             profiles,
             gpg,
-	    verbosity: config.verbosity,
+            verbosity: config.verbosity,
             profile_enabled: vec![],
         })
     }
@@ -550,7 +550,7 @@ mod tests {
     use super::*;
     use crate::paths::unlink;
     use crate::Mode::NoGpg;
-    use cmd_lib::{init_builtin_logger, run_cmd};
+    use cmd_lib::run_cmd;
     use indoc::indoc;
     use pretty_assertions::assert_eq;
     use sealed_test::prelude::*;
@@ -562,7 +562,6 @@ mod tests {
     fn setup(dotfiles: &str) {
         let home_dir = env::current_dir().unwrap().canonicalize().unwrap();
         env::set_var("HOME", home_dir);
-        init_builtin_logger();
         run_cmd!(
             mkdir .config;
             tree -a;

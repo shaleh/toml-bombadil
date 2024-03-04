@@ -18,6 +18,29 @@ pub struct Variables {
     pub secrets: HashMap<String, String>,
 }
 
+fn _from_toml_internals(path: &Path, file: File) -> Result<Variables> {
+    let mut buf_reader = BufReader::new(file);
+    let mut contents = String::new();
+
+    buf_reader
+        .read_to_string(&mut contents)
+        .map_err(|err| anyhow!("Cannot read var file {:?} : {}", &path, err))?;
+
+    let variables: HashMap<String, String> =
+        toml::from_str(&contents).map_err(|err| anyhow!("parse error in {:?} :  {}", path, err))?;
+
+    match GPG.as_ref() {
+        Some(gpg) => {
+            let secrets = Variables::decrypt_values(&variables, gpg)?;
+            Ok(Variables { variables, secrets })
+        }
+        None => Ok(Variables {
+            variables,
+            secrets: HashMap::default(),
+        }),
+    }
+}
+
 impl Variables {
     pub(crate) fn from_paths(base_path: &Path, var_paths: &[PathBuf]) -> Result<Self> {
         let mut out = Self::default();
@@ -31,33 +54,12 @@ impl Variables {
 
     /// Deserialize a toml file struct Variables
     pub(crate) fn from_toml(path: &Path) -> Result<Self> {
-        let file = File::open(path);
-
-        if let Err(err) = file {
-            eprintln!("{} {:?} : {}", "Could not open var file".red(), path, err);
-            Ok(Self::default())
-        } else {
-            let mut buf_reader = BufReader::new(file.unwrap());
-            let mut contents = String::new();
-
-            buf_reader
-                .read_to_string(&mut contents)
-                .map_err(|err| anyhow!("Cannot read var file {:?} : {}", &path, err))?;
-
-            let variables: HashMap<String, String> = toml::from_str(&contents)
-                .map_err(|err| anyhow!("parse error in {:?} :  {}", path, err))?;
-
-            let vars = if let Some(gpg) = GPG.as_ref() {
-                let secrets = Variables::decrypt_values(&variables, gpg)?;
-                Variables { variables, secrets }
-            } else {
-                Variables {
-                    variables,
-                    secrets: HashMap::default(),
-                }
-            };
-
-            Ok(vars)
+        match File::open(path) {
+            Ok(file) => _from_toml_internals(path, file),
+            Err(err) => {
+                eprintln!("{} {:?} : {}", "Could not open var file".red(), path, err);
+                Ok(Self::default())
+            }
         }
     }
 
@@ -107,15 +109,17 @@ impl Variables {
             .collect();
 
         // insert value in place of references
-        entries.iter().for_each(|(key, opt_value)| match opt_value {
-            Some(value) => {
-                let _ = self.variables.insert(key.to_string(), value.to_string());
-            }
-            None => {
-                let warning = format!("Reference ${} not found in settings", &key).yellow();
-                eprintln!("{}", warning);
-            }
-        });
+        entries
+            .into_iter()
+            .for_each(|(key, opt_value)| match opt_value {
+                Some(value) => {
+                    self.variables.insert(key, value);
+                }
+                None => {
+                    let warning = format!("Reference ${} not found in settings", &key).yellow();
+                    eprintln!("{}", warning);
+                }
+            });
     }
 
     pub(crate) fn extend(&mut self, vars: Variables) {
@@ -131,19 +135,14 @@ impl Variables {
         vars: &HashMap<String, String>,
         gpg: &Gpg,
     ) -> Result<HashMap<String, String>> {
-        let encrypted_vars = vars
-            .iter()
-            .filter(|(_, value)| value.starts_with(GPG_PREFIX));
-
-        let mut secrets = HashMap::new();
-
-        for (key, value) in encrypted_vars {
-            let value = value.strip_prefix(GPG_PREFIX).unwrap();
-            let value = gpg.decrypt_secret(value)?;
-            let _ = secrets.insert(key.clone(), value);
-        }
-
-        Ok(secrets)
+        vars.iter()
+            .filter(|(_, value)| value.starts_with(GPG_PREFIX))
+            .map(|(key, value)| {
+                let value = value.strip_prefix(GPG_PREFIX).unwrap();
+                gpg.decrypt_secret(value)
+                    .map(|decrypted_value| (key.clone(), decrypted_value))
+            })
+            .collect()
     }
 }
 

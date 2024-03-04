@@ -35,8 +35,8 @@ enum Cli {
         /// A list of comma separated profiles to activate
         #[clap(short, long, required = false, value_parser = profiles(), num_args(0..))]
         profiles: Vec<String>,
-	#[clap(short, long, required = false, default_value_t = false)]
-	verbose: bool,
+        #[clap(short, long, required = false, default_value_t = false)]
+        verbose: bool,
     },
     /// Remove all symlinks defined in your bombadil.toml
     Unlink,
@@ -81,9 +81,9 @@ fn main() -> Result<()> {
             let mut bombadil =
                 Bombadil::from_settings(Mode::Gpg).unwrap_or_else(|err| fatal!("{}", err));
 
-	    bombadil
-		.configure_verbosity(verbose)
-		.unwrap_or_else(|err| fatal!("{}", err));
+            bombadil
+                .configure_verbosity(verbose)
+                .unwrap_or_else(|err| fatal!("{}", err));
 
             bombadil
                 .enable_profiles(profiles.iter().map(String::as_str).collect())
