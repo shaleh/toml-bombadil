@@ -35,6 +35,8 @@ enum Cli {
         /// A list of comma separated profiles to activate
         #[clap(short, long, required = false, value_parser = profiles(), num_args(0..))]
         profiles: Vec<String>,
+	#[clap(short, long, required = false, default_value_t = false)]
+	verbose: bool,
     },
     /// Remove all symlinks defined in your bombadil.toml
     Unlink,
@@ -75,11 +77,19 @@ fn main() -> Result<()> {
         Cli::Install { config } => {
             Bombadil::link_self_config(config)?;
         }
-        Cli::Link { profiles } => {
-            let mut bombadil = Bombadil::from_settings(Mode::Gpg)?;
+        Cli::Link { profiles, verbose } => {
+            let mut bombadil =
+                Bombadil::from_settings(Mode::Gpg).unwrap_or_else(|err| fatal!("{}", err));
 
-            bombadil.enable_profiles(profiles.iter().map(String::as_str).collect())?;
-            bombadil.install()?;
+	    bombadil
+		.configure_verbosity(verbose)
+		.unwrap_or_else(|err| fatal!("{}", err));
+
+            bombadil
+                .enable_profiles(profiles.iter().map(String::as_str).collect())
+                .unwrap_or_else(|err| fatal!("{}", err));
+
+            bombadil.install().unwrap_or_else(|err| fatal!("{}", err));
         }
         Cli::Unlink => {
             Bombadil::from_settings(Mode::NoGpg).and_then(|bombadil| bombadil.uninstall())?;

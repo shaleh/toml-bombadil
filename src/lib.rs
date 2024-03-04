@@ -46,6 +46,7 @@ pub struct Bombadil {
     profile_enabled: Vec<String>,
     // A GPG user id, linking to user encryption/decryption key via gnupg
     gpg: Option<Gpg>,
+    verbosity: bool,
 }
 
 /// Enable or disable GPG encryption when linking dotfiles
@@ -138,22 +139,30 @@ impl Bombadil {
                         LinkResult::Updated => {
                             let source = format!("{:?}", copy_path).blue();
                             let dest = format!("{:?}", target).yellow();
-                            println!("{} => {}", source, dest)
+                            if self.verbosity {
+				println!("{} => {}", source, dest);
+			    }
                         }
                         LinkResult::Created => {
                             let source = format!("{:?}", copy_path).blue();
                             let dest = format!("{:?}", target).green();
-                            println!("Created - {} => {}", source, dest)
+                            if self.verbosity {
+				println!("Created - {} => {}", source, dest);
+			    }
                         }
                         LinkResult::Ignored => {
                             let source = format!("{:?}", copy_path);
                             let dest = format!("{:?}", target);
-                            println!("Ignored - {} => {}", source, dest)
+                            if self.verbosity {
+				println!("Ignored - {} => {}", source, dest);
+			    }
                         }
                         LinkResult::Unchanged => {
                             let source = format!("{:?}", copy_path);
                             let dest = format!("{:?}", target);
-                            println!("Unchanged - {} => {}", source, dest)
+			    if self.verbosity {
+				println!("Unchanged - {} => {}", source, dest);
+			    }
                         }
                     }
                 }
@@ -377,6 +386,15 @@ impl Bombadil {
         Ok(())
     }
 
+    /// Enable a dotfile profile by merging its settings with the default profile
+    pub fn configure_verbosity(&mut self, verbose: bool) -> Result<()> {
+	if verbose {
+	    self.verbosity = true;
+	}
+
+        Ok(())
+    }
+
     fn check_dotfile_dir(&self) -> Result<()> {
         if !self.path.exists() {
             return Err(anyhow!(
@@ -439,6 +457,7 @@ impl Bombadil {
             posthooks,
             profiles,
             gpg,
+	    verbosity: config.verbosity,
             profile_enabled: vec![],
         })
     }
