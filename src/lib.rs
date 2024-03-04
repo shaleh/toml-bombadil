@@ -7,26 +7,13 @@ use crate::state::BombadilState;
 use crate::templating::Variables;
 use anyhow::{anyhow, Result};
 use colored::*;
-use ignore_files::IgnoreFilter;
 use settings::dots::Dot;
 use settings::Settings;
 use std::collections::HashMap;
 use std::io::Write;
 use std::os::unix;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::Duration;
 use std::{fs, io};
-use watchexec::{
-    action::{Action, Outcome},
-    config::{InitConfig, RuntimeConfig},
-    error::RuntimeError,
-    event::{filekind::FileEventKind, Tag},
-    handler::PrintDebug,
-    signal::source::MainSignal,
-    Watchexec,
-};
-use watchexec_filterer_ignore::IgnoreFilterer;
 
 mod dots;
 mod error;
@@ -275,74 +262,6 @@ impl Bombadil {
             });
         }
 
-        Ok(())
-    }
-
-    /// Watch dotfiles and automatically run link on changes
-    pub async fn watch(profiles: Vec<String>) -> Result<()> {
-        let mut bombadil = Bombadil::from_settings(Mode::Gpg)?;
-        bombadil.enable_profiles(profiles.iter().map(String::as_str).collect())?;
-
-        let mut init = InitConfig::default();
-        init.on_error(PrintDebug(io::stderr()));
-
-        let dotfiles_path = &bombadil.dotfiles_absolute_path()?;
-
-        let mut runtime = RuntimeConfig::default();
-        runtime.action_throttle(Duration::from_secs(1));
-
-        // Ignore stuff like .git dirs
-        let ignore_files = ignore_files::from_origin(dotfiles_path).await;
-        let ignore_filter = IgnoreFilter::new(dotfiles_path, &ignore_files.0).await?;
-        runtime.filterer(Arc::new(IgnoreFilterer(ignore_filter)));
-
-        runtime.pathset([dotfiles_path]);
-
-        runtime.on_action(move |action: Action| {
-            let mut b = Bombadil::from_settings(Mode::Gpg).expect("Failed to get settings");
-            b.enable_profiles(profiles.iter().map(String::as_str).collect())
-                .expect("Failed to enable profiles");
-
-            async move {
-                for event in action.events.iter() {
-                    // Select only relevant events (creations, modifications, deletions)
-                    if event.tags.iter().any(|t| {
-                        matches!(t, &Tag::FileEventKind(FileEventKind::Create(_)))
-                            || matches!(t, &Tag::FileEventKind(FileEventKind::Modify(_)))
-                            || matches!(t, &Tag::FileEventKind(FileEventKind::Remove(_)))
-                    }) {
-                        println!("{}", "Detected changes, re-linking dots".green());
-                        // Finally, install the dots like usual
-                        b.install().map_err(|e| RuntimeError::Handler {
-                            ctx: "bombadil install",
-                            err: e.to_string(),
-                        })?;
-                        break;
-                    }
-                }
-
-                let sigs = action
-                    .events
-                    .iter()
-                    .flat_map(|event| event.signals())
-                    .collect::<Vec<_>>();
-
-                // Stop gently on Ctrl-C and kill -15
-                if sigs
-                    .iter()
-                    .any(|sig| sig == &MainSignal::Interrupt || sig == &MainSignal::Terminate)
-                {
-                    action.outcome(Outcome::Exit);
-                } else {
-                    action.outcome(Outcome::if_running(Outcome::DoNothing, Outcome::Start));
-                }
-
-                Ok::<_, RuntimeError>(())
-            }
-        });
-
-        let watchexec = Watchexec::new(init, runtime.clone())?;
-        watchexec.main().await??;
         Ok(())
     }
 

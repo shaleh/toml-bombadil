@@ -51,12 +51,6 @@ enum Cli {
     },
     /// Remove all symlinks defined in your bombadil.toml
     Unlink,
-    /// Watch dotfiles and automatically run link on changes
-    Watch {
-        /// A list of comma separated profiles to activate
-        #[clap(short, long, required = false, value_parser = profiles(), num_args(0..))]
-        profiles: Vec<String>,
-    },
     /// Add a secret var to bombadil environment
     AddSecret {
         /// Key of the secret variable to create
@@ -87,8 +81,7 @@ enum Cli {
     },
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let cli: Cli = Cli::parse();
 
     match cli {
@@ -126,9 +119,6 @@ async fn main() -> Result<()> {
 
             bombadil.enable_profiles(profiles.iter().map(String::as_str).collect())?;
             bombadil.install()?;
-        }
-        Cli::Watch { profiles } => {
-            Bombadil::watch(profiles).await?;
         }
         Cli::Unlink => {
             Bombadil::from_settings(Mode::NoGpg).and_then(|bombadil| bombadil.uninstall())?;
