@@ -30,7 +30,6 @@ use watchexec_filterer_ignore::IgnoreFilterer;
 
 mod dots;
 mod error;
-mod git;
 mod gpg;
 mod hook;
 pub mod paths;
@@ -69,29 +68,7 @@ pub enum Mode {
 }
 
 impl Bombadil {
-    /// Given a git remote address, will clone the repository to the target path
-    /// and install the dotfiles according to the "bombadil.toml" configuration inside the
-    /// repo root.
-    pub fn install_from_remote(
-        remote: &str,
-        path: PathBuf,
-        profiles: Option<Vec<&str>>,
-    ) -> Result<()> {
-        git::clone(remote, path.as_path())?;
-        Bombadil::link_self_config(Some(path.join(BOMBADIL_CONFIG)))?;
-
-        let mut bombadil = Bombadil::from_settings(Mode::Gpg)?;
-
-        if let Some(profiles) = profiles {
-            bombadil.enable_profiles(profiles)?;
-        }
-
-        bombadil.install()?;
-
-        Ok(())
-    }
-
-    /// Symlink `bombadil.toml` to `$XDG_CONFIG/bombadil.toml` so we can later read it from there.
+   /// Symlink `bombadil.toml` to `$XDG_CONFIG/bombadil.toml` so we can later read it from there.
     pub fn link_self_config(dotfiles_path: Option<PathBuf>) -> Result<()> {
         // Get the provided path and attempt to resolve 'bombadil.toml' if it's a directory
         let path = match dotfiles_path {

@@ -5,7 +5,6 @@ use clap_complete::Shell;
 use std::io;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use toml_bombadil::settings::profiles;
 use toml_bombadil::{Bombadil, MetadataType, Mode};
 
@@ -30,18 +29,6 @@ enum Cli {
         /// Path to your dotfile directory
         #[clap(value_name = "CONFIG", required = false)]
         config: Option<PathBuf>,
-    },
-    /// Install dotfiles from a remote git repository to a target folder
-    Clone {
-        /// Remote repository address, either http or ssh
-        #[clap(short, long, required = false)]
-        remote: String,
-        /// Target destination, repository name by default
-        #[clap(short, long, required = false)]
-        target: Option<PathBuf>,
-        /// A list of comma separated profiles to activate
-        #[clap(short, long, required = false, num_args(0..))]
-        profiles: Vec<String>,
     },
     /// Symlink a copy of your dotfiles and inject variables according to bombadil.toml settings
     Link {
@@ -94,32 +81,6 @@ async fn main() -> Result<()> {
     match cli {
         Cli::Install { config } => {
             Bombadil::link_self_config(config).unwrap_or_else(|err| fatal!("{}", err));
-        }
-        Cli::Clone {
-            remote,
-            target,
-            profiles,
-        } => {
-            let path = match target {
-                None => {
-                    let repo_name = remote.split('/').last().unwrap();
-                    let repo_name = repo_name.strip_suffix(".git").unwrap();
-                    PathBuf::from_str(repo_name).unwrap()
-                }
-                Some(path) => path,
-            };
-
-            println!("Cloning {remote} in {path:?}");
-            let profiles: Option<Vec<&str>> = if !profiles.is_empty() {
-                // Remove this
-                let vec = profiles.iter().map(String::as_str).collect();
-                Some(vec)
-            } else {
-                None
-            };
-
-            Bombadil::install_from_remote(&remote, path, profiles)
-                .unwrap_or_else(|err| fatal!("{}", err));
         }
         Cli::Link { profiles } => {
             let mut bombadil =
